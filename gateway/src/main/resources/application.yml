@@ -3,6 +3,15 @@ server:
 spring:
   application:
     name: gateway
+  cloud:
+    gateway:
+      routes:
+        - id: dummy-service
+          uri: lb://dummy-service
+          predicates:
+            - Path=/dummy/**
+          filters:
+            - UniqueIdGenerator
 eureka:
   instance:
     prefer-ip-address: true
