@@ -9,7 +9,7 @@
         <relativePath/>
     </parent>
     <groupId>com</groupId>
-    <artifactId>example</artifactId>
+    <artifactId>eureka</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>eureka</name>
     <description>eureka</description>
