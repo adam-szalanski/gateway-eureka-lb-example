@@ -6,18 +6,13 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: dummy-service
-          uri: lb://dummy-service
-          predicates:
-            - Path=/dummy/**
-          filters:
-            - UniqueIdGenerator
         - id: customer-service
           uri: lb://customer-service
           predicates:
             - Path=/api/v1/customer/**
           filters:
             - UniqueIdGenerator
+
         - id: warehouse-service
           uri: lb://warehouse-service
           predicates:
