@@ -7,17 +7,12 @@ This guide explains how to build and run the project and how to work with the pr
 
 ## Prerequisites
 
-- **Java & Maven:** Ensure you have Java and Maven installed.
 - **Docker:** Ensure Docker is installed and running.
 - **Docker Compose:** Ensure Docker Compose is installed.
 
 ## Building the Applications
 
-For **each application**, navigate to its root directory and run:
-```bash
-mvn clean install
-```
-After the Maven build, create the Docker images for each service:
+Create the Docker images for each service:
 
 Customer Service
 ```bash
@@ -55,3 +50,4 @@ docker compose up -d
 1. Import the YAML files into Postman.
 2. Set the base URL in the imported collection to: http://localhost:8080
 3. Disable the X-Unique-Id header if it's automatically included in requests.
+4. If request returns HTTP 503 (Service Unavailable) wait a few seconds and perform request again.

@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
-//@LoadBalancerClient
 public class ApplicationConfig {
 
     public static final String UNIQUE_ID_HEADER = "X-Unique-Id";
