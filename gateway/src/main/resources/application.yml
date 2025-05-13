@@ -6,12 +6,20 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: dummy-service
-          uri: lb://dummy-service
+        - id: customer-service
+          uri: lb://customer-service
           predicates:
-            - Path=/dummy/**
+            - Path=/api/v1/customer/**
           filters:
             - UniqueIdGenerator
+
+        - id: warehouse-service
+          uri: lb://warehouse-service
+          predicates:
+            - Path=/api/v1/warehouse/**
+          filters:
+            - UniqueIdGenerator
+
 eureka:
   instance:
     prefer-ip-address: true
