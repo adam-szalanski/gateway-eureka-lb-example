@@ -8,6 +8,7 @@ class CustomerServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        //generic test
     }
 
 }

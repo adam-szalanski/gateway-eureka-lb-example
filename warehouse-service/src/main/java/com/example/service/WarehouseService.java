@@ -26,7 +26,7 @@ public class WarehouseService {
 
     public void reserveStock(ReserveProductRequest productRequest, String clientId){
         var stock = new StockReservation(clientId ,productRequest.id(), productRequest.quantity());
-       reservationRepository.save(stock);
+        reservationRepository.save(stock);
     }
 
     public StockReservationProjection getStock(String clientId){
