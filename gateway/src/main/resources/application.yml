@@ -12,6 +12,9 @@ spring:
             - Path=/api/v1/customer/**
           filters:
             - UniqueIdGenerator
+            - name: OpenApiValidation
+              args:
+                swaggerFilePath: "/openapi/customer_service-openapi.yaml"
 
         - id: warehouse-service
           uri: lb://warehouse-service
@@ -19,6 +22,9 @@ spring:
             - Path=/api/v1/warehouse/**
           filters:
             - UniqueIdGenerator
+            - name: OpenApiValidation
+              args:
+                swaggerFilePath: "/openapi/warehouse_service-openapi.yaml"
 
 eureka:
   instance:
