@@ -13,7 +13,7 @@ paths:
       parameters:
         - name: "X-Unique-Id"
           in: "header"
-          required: false
+          required: true
           schema:
             type: "string"
       requestBody:
