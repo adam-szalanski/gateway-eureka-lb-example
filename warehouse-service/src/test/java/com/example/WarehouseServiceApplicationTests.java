@@ -8,6 +8,7 @@ class WarehouseServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        //generic test
     }
 
 }

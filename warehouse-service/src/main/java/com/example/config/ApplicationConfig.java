@@ -8,8 +8,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class ApplicationConfig {
 
-    public static final String UNIQUE_ID_HEADER = "X-Unique-Id";
-
     @LoadBalanced
     @Bean
     WebClient.Builder webClientBuilder() {

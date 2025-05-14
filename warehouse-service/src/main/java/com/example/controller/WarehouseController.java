@@ -17,11 +17,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WarehouseController {
 
+    private static final String UNIQUE_ID_LOGS_KEY = "uniqueId";
     private final WarehouseService warehouseService;
 
     @GetMapping( "/stocks")
     ResponseEntity<List<StockReservationProjection>> getAllStocks(@RequestHeader(name = "X-Unique-Id") String uniqueId) {
-        MDC.put( "uniqueId", uniqueId);
+        MDC.put(UNIQUE_ID_LOGS_KEY, uniqueId);
         log.info("Received request for all stocks");
         var reservations = warehouseService.getStockReservations();
         return ResponseEntity.ok(reservations);
@@ -29,7 +30,7 @@ public class WarehouseController {
 
     @GetMapping( "/stocks/{clientId}")
     ResponseEntity<StockReservationProjection> getStock(@RequestHeader(name = "X-Unique-Id") String uniqueId, @PathVariable String clientId) {
-        MDC.put( "uniqueId", uniqueId);
+        MDC.put(UNIQUE_ID_LOGS_KEY, uniqueId);
         log.info("Received read stock request for client: {}", clientId);
         if(clientId == null || clientId.isBlank()){
             return ResponseEntity.badRequest().build();
@@ -45,7 +46,7 @@ public class WarehouseController {
 
     @PostMapping( "/stocks")
     ResponseEntity<Void> createOrUpdateStock(@RequestHeader(name = "X-Unique-Id") String uniqueId, @RequestBody ReserveProductRequest request) {
-        MDC.put( "uniqueId", uniqueId);
+        MDC.put(UNIQUE_ID_LOGS_KEY, uniqueId);
         log.info("Received request to reserve stock for product: {}", request.id());
         if (request.quantity() < 1){
             return ResponseEntity.badRequest().build();

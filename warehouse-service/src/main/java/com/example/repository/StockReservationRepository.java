@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 public class StockReservationRepository {
 
-    private final static Map<String, StockReservation> RESERVATION_CONCURRENT_HASH_MAP = new ConcurrentHashMap<>();
+    private static final Map<String, StockReservation> RESERVATION_CONCURRENT_HASH_MAP = new ConcurrentHashMap<>();
 
     public Optional<StockReservation> get(String id){
         return Optional.ofNullable(RESERVATION_CONCURRENT_HASH_MAP.get(id));
@@ -21,12 +21,12 @@ public class StockReservationRepository {
         return RESERVATION_CONCURRENT_HASH_MAP.values().stream().toList();
     }
 
-    public StockReservation save(StockReservation stockReservation){
+    public void save(StockReservation stockReservation) {
         if (stockReservation == null){
             throw new IllegalArgumentException("StockReservation cannot be null");
         }
 
-        return RESERVATION_CONCURRENT_HASH_MAP.compute(stockReservation.getClientId() ,
+        RESERVATION_CONCURRENT_HASH_MAP.compute(stockReservation.getClientId(),
                 (id, existingReservation) -> {
                     if (existingReservation == null) {
                         return stockReservation;

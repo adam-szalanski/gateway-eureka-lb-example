@@ -1,6 +1,8 @@
 services:
   eureka-service:
-    image: eureka-service
+    build:
+      context: eureka
+      dockerfile: Dockerfile
     environment:
       - SERVER_PORT=8761
     ports:
@@ -9,9 +11,10 @@ services:
       - spring-cloud
 
   gateway-service:
-    image: gateway-service
+    build:
+      context: gateway
+      dockerfile: Dockerfile
     environment:
-      - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-service:8761/eureka
     ports:
       - "8080:8080"
@@ -21,48 +24,44 @@ services:
       - eureka-service
 
   customer-service-1:
-    image: customer-service
+    build:
+      context: customer-service
+      dockerfile: Dockerfile
     environment:
-      - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-service:8761/eureka
-    ports:
-      - "8100:8080"
     networks:
       - spring-cloud
     depends_on:
       - eureka-service
 
   customer-service-2:
-    image: customer-service
+    build:
+      context: customer-service
+      dockerfile: Dockerfile
     environment:
-      - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-service:8761/eureka
-    ports:
-      - "8101:8080"
     networks:
       - spring-cloud
     depends_on:
       - eureka-service
 
   warehouse-service-1:
-    image: warehouse-service
+    build:
+      context: warehouse-service
+      dockerfile: Dockerfile
     environment:
-      - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-service:8761/eureka
-    ports:
-      - "8102:8080"
     networks:
       - spring-cloud
     depends_on:
       - eureka-service
 
   warehouse-service-2:
-    image: warehouse-service
+    build:
+      context: warehouse-service
+      dockerfile: Dockerfile
     environment:
-      - SERVER_PORT=8080
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-service:8761/eureka
-    ports:
-      - "8103:8080"
     networks:
       - spring-cloud
     depends_on:
