@@ -26,6 +26,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -33,100 +34,96 @@ import java.util.Map;
 public class OpenApiValidationGatewayFilterFactory extends
                                                    AbstractGatewayFilterFactory<OpenApiValidationGatewayFilterFactory.Config> {
 
+    private static final Jackson2JsonEncoder JSON_ENCODER = new Jackson2JsonEncoder();
+
     public OpenApiValidationGatewayFilterFactory() {
         super(Config.class);
     }
 
     @Override
     public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            ServerHttpRequest request = exchange.getRequest();
-            String path = request.getPath()
-                    .value();
-            String method = request.getMethod()
-                    .name();
-            return DataBufferUtils.join(request.getBody()
-                            .defaultIfEmpty(DefaultDataBufferFactory.sharedInstance.allocateBuffer(0)))
-                    .flatMap(dataBuffer -> {
-                        byte[] bytes = new byte[dataBuffer.readableByteCount()];
-                        dataBuffer.read(bytes);
-                        DataBufferUtils.release(dataBuffer);
-                        String body = new String(bytes, StandardCharsets.UTF_8);
+        return (exchange, chain) -> DataBufferUtils.join(
+                        exchange.getRequest()
+                                .getBody()
+                                .defaultIfEmpty(DefaultDataBufferFactory.sharedInstance.allocateBuffer(0)))
+                .flatMap(dataBuffer -> {
+                    byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                    String body = extractRequestBody(dataBuffer, bytes);
 
-                        return validateRequest(exchange, body, request, method, path, config)
-                                .flatMap(valid -> {
-                                    if (!valid) {
-                                        return exchange.getResponse().setComplete();
-                                    }
+                    ValidationReport report = validateRequest(body, exchange.getRequest(), config);
 
-                                    ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                                            .header(HttpHeaders.CONTENT_LENGTH, Integer.toString(bytes.length))
-                                            .build();
+                    if (report.hasErrors()) {
+                        log.error("Validation errors: {}", report);
+                        return writeErrorResponse(exchange, report);
+                    }
 
-                                    ServerWebExchange mutatedExchange = exchange.mutate()
-                                            .request(new RequestBodyDecorator(mutatedRequest, exchange, bytes)).build();
+                    log.info("Validation successful");
+                    ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                            .header(HttpHeaders.CONTENT_LENGTH, Integer.toString(bytes.length))
+                            .build();
 
-                                    return chain.filter(mutatedExchange);
-                                });
-                    });
-        };
+                    ServerWebExchange mutatedExchange = exchange.mutate()
+                            .request(new RequestBodyDecorator(mutatedRequest, exchange, bytes)).build();
+
+                    return chain.filter(mutatedExchange);
+                });
     }
 
-    private Mono<Boolean> validateRequest(ServerWebExchange exchange, String body,
-                                       ServerHttpRequest request, String method, String path, Config config) {
-        Map<String, String> headers = request.getHeaders()
-                .toSingleValueMap();
-        log.info("Preparing to validate request: method: {}, path: {}, headers: {}, body:{}", method,
-                 path, headers,
-                 body);
-        SimpleRequest.Builder builder = getValidationRequestBuilder(method, path, headers, body);
+    private static String extractRequestBody(DataBuffer buffer, byte[] bytes) {
+        buffer.read(bytes);
+        DataBufferUtils.release(buffer);
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
 
+    private Mono<Void> writeErrorResponse(ServerWebExchange exchange, ValidationReport report) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        response.setStatusCode(status);
+
+        List<String> validationErrorMessageList = report.getMessages()
+                .stream()
+                .map(ValidationReport.Message::getMessage)
+                .toList();
+        ValidationErrorResponse errorResponse = new ValidationErrorResponse(status.value(), validationErrorMessageList);
+
+        return response.writeWith(
+                JSON_ENCODER.encode(
+                        Mono.just(errorResponse),
+                        response.bufferFactory(),
+                        ResolvableType.forInstance(report),
+                        MediaType.APPLICATION_JSON,
+                        exchange.getAttributes()));
+    }
+
+    private ValidationReport validateRequest(String body, ServerHttpRequest request, Config config) {
+        Map<String, String> headers = request.getHeaders().toSingleValueMap();
+        String method = request.getMethod().name();
+        String path = request.getPath().value();
+
+        log.info("Validating: method={}, path={}, headers={}, body={} ", method, path, headers, body);
+
+        SimpleRequest.Builder builder = buildRequest(method, path, headers, body);
         OpenApiInteractionValidator validator = OpenApiInteractionValidator
                 .createFor(new ClassPathResource(config.getSwaggerFilePath()).getPath())
                 .build();
-        ValidationReport validationReport = validator.validateRequest(
-                builder.build());
-        log.info("Validation report: {}", validationReport);
 
-        return verifyValidationReport(exchange, validationReport);
+        return validator.validateRequest(builder.build());
     }
 
-    private Mono<Boolean> verifyValidationReport(ServerWebExchange exchange,
-                                              ValidationReport validationReport) {
-        Mono<Boolean> response;
-        if (validationReport.hasErrors()) {
-            log.error("Validation report has errors: {}", validationReport);
-            ServerHttpResponse serverResponse = exchange.getResponse();
-            serverResponse
-                    .setStatusCode(HttpStatus.BAD_REQUEST);
-            response = serverResponse
-                    .writeWith(new Jackson2JsonEncoder().encode(Mono.just(validationReport.getMessages()),
-                                                                serverResponse.bufferFactory(),
-                                                                ResolvableType.forInstance(validationReport),
-                                                                MediaType.APPLICATION_JSON,
-                            exchange.getAttributes()))
-                    .thenReturn(false);
-        }
-        else {
-            log.info("Validation successful");
-            response = Mono.just(true);
-        }
-        return response;
-    }
-
-    private SimpleRequest.Builder getValidationRequestBuilder(String method, String path, Map<String, String> headers,
-                                                              String body) {
-        log.debug("Building validation request builder");
-        SimpleRequest.Builder builder = switch (method) {
+    private SimpleRequest.Builder buildRequest(String method, String path, Map<String, String> headers, String body) {
+        SimpleRequest.Builder builder = switch (method.toUpperCase()) {
             case "GET" -> SimpleRequest.Builder.get(path);
+            case "HEAD" -> SimpleRequest.Builder.head(path);
             case "POST" -> SimpleRequest.Builder.post(path);
             case "PUT" -> SimpleRequest.Builder.put(path);
+            case "PATCH" -> SimpleRequest.Builder.patch(path);
             case "DELETE" -> SimpleRequest.Builder.delete(path);
+            case "OPTIONS" -> SimpleRequest.Builder.options(path);
+            case "TRACE" -> SimpleRequest.Builder.trace(path);
             default -> throw new IllegalArgumentException("Unsupported method: " + method);
         };
-        for (Map.Entry<String, String> stringStringEntry : headers.entrySet()) {
-            builder.withHeader(stringStringEntry.getKey(), stringStringEntry.getValue());
-        }
+        headers.forEach(builder::withHeader);
         builder.withBody(body, StandardCharsets.UTF_8);
         return builder;
     }
@@ -134,25 +131,26 @@ public class OpenApiValidationGatewayFilterFactory extends
     @Getter
     @Setter
     public static class Config {
-        protected String swaggerFilePath;
+        private String swaggerFilePath;
     }
 
     private static class RequestBodyDecorator extends ServerHttpRequestDecorator {
         private final ServerWebExchange exchange;
         private final byte[] bytes;
 
-        RequestBodyDecorator(ServerHttpRequest mutatedRequest, ServerWebExchange exchange, byte[] bytes) {
-            super(mutatedRequest);
+        RequestBodyDecorator(ServerHttpRequest request, ServerWebExchange exchange, byte[] bytes) {
+            super(request);
             this.exchange = exchange;
             this.bytes = bytes;
         }
 
         @Override
         public Flux<DataBuffer> getBody() {
-            DataBuffer buffer = exchange.getResponse()
-                    .bufferFactory()
-                    .wrap(bytes);
-            return Flux.just(buffer);
+            return Flux.just(exchange.getResponse().bufferFactory().wrap(bytes));
         }
     }
+
+    private record ValidationErrorResponse(int status, List<String> errors) {
+    }
+
 }
