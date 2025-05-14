@@ -106,10 +106,9 @@ public class OpenApiValidationGatewayFilterFactory extends
             case "DELETE" -> SimpleRequest.Builder.delete(path);
             default -> throw new IllegalArgumentException("Unsupported method: " + method);
         };
-        // TODO 13.05.2025: fix header validation
-//        for (Map.Entry<String, String> stringStringEntry : headers.entrySet()) {
-//            builder.withHeader(stringStringEntry.getKey(), stringStringEntry.getValue());
-//        }
+        for (Map.Entry<String, String> stringStringEntry : headers.entrySet()) {
+            builder.withHeader(stringStringEntry.getKey(), stringStringEntry.getValue());
+        }
         builder.withBody(body, StandardCharsets.UTF_8);
         return builder;
     }
