@@ -1,0 +1,41 @@
+openapi: "3.1.0"
+info:
+  title: "service_1 API"
+  description: "service_1 API"
+  version: "1.0.0"
+servers:
+  - url: "https://service_1"
+paths:
+  /api/v1/customer/reserve:
+    post:
+      summary: "POST api/v1/customer/reserve"
+      operationId: "respondWithUniqueId"
+      parameters:
+        - name: "X-Unique-Id"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientRequest"
+        required: true
+      responses:
+        "200":
+          description: "OK"
+          content:
+            '*/*':
+              schema:
+                type: "string"
+components:
+  schemas:
+    ClientRequest:
+      type: "object"
+      properties:
+        productName:
+          type: "string"
+        quantity:
+          type: "integer"
+          format: "int32"

@@ -12,6 +12,7 @@ spring:
             - Path=/api/v1/customer/**
           filters:
             - UniqueIdGenerator
+            - OpenApiValidation
 
         - id: warehouse-service
           uri: lb://warehouse-service
