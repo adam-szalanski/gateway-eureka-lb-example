@@ -5,10 +5,12 @@ RUN mvn clean install -Dmaven.test.skip=true
 
 FROM openjdk:21-slim
 ENV TZ=Europe/Warsaw
-RUN apt-get update && apt-get install -y tzdata && \
-    ln -snf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime && \
-    echo "Europe/Warsaw" > /etc/timezone && \
-    apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata curl && \
+    ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo "${TZ}" > /etc/timezone && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=builder /target/eureka-*.jar /app.jar
-EXPOSE 8080
+EXPOSE 8761
 CMD ["java", "-jar", "/app.jar"]

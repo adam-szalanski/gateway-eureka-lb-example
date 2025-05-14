@@ -1,5 +1,6 @@
 services:
   eureka-service:
+    container_name: eureka-service
     build:
       context: eureka
       dockerfile: Dockerfile
@@ -9,8 +10,15 @@ services:
       - "8761:8761"
     networks:
       - spring-cloud
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 10s
+      start_interval: 10s
+      timeout: 10s
+      retries: 10
 
   gateway-service:
+    container_name: gateway-service
     build:
       context: gateway
       dockerfile: Dockerfile
@@ -21,9 +29,11 @@ services:
     networks:
       - spring-cloud
     depends_on:
-      - eureka-service
+      eureka-service:
+        condition: service_healthy
 
   customer-service-1:
+    container_name: customer-service-1
     build:
       context: customer-service
       dockerfile: Dockerfile
@@ -32,9 +42,12 @@ services:
     networks:
       - spring-cloud
     depends_on:
-      - eureka-service
+      eureka-service:
+        condition: service_healthy
+
 
   customer-service-2:
+    container_name: customer-service-2
     build:
       context: customer-service
       dockerfile: Dockerfile
@@ -43,9 +56,12 @@ services:
     networks:
       - spring-cloud
     depends_on:
-      - eureka-service
+      eureka-service:
+        condition: service_healthy
+
 
   warehouse-service-1:
+    container_name: warehouse-service-1
     build:
       context: warehouse-service
       dockerfile: Dockerfile
@@ -54,9 +70,12 @@ services:
     networks:
       - spring-cloud
     depends_on:
-      - eureka-service
+      eureka-service:
+        condition: service_healthy
+
 
   warehouse-service-2:
+    container_name: warehouse-service-2
     build:
       context: warehouse-service
       dockerfile: Dockerfile
@@ -65,7 +84,9 @@ services:
     networks:
       - spring-cloud
     depends_on:
-      - eureka-service
+      eureka-service:
+        condition: service_healthy
+
 
 networks:
   spring-cloud:
