@@ -18,6 +18,7 @@ public class UniqueIdGeneratorRequestFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
+        Mono<Void> requestHandlingCompletionIndicator;
 
         if (!request.getHeaders().containsKey(UNIQUE_ID_HEADER)) {
             String uniqueId = UUID.randomUUID().toString();
@@ -25,10 +26,12 @@ public class UniqueIdGeneratorRequestFilter implements GlobalFilter, Ordered {
                     .mutate()
                     .header(UNIQUE_ID_HEADER, uniqueId)
                     .build();
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            requestHandlingCompletionIndicator = chain.filter(exchange.mutate().request(modifiedRequest).build());
+        } else {
+            requestHandlingCompletionIndicator = chain.filter(exchange);
         }
 
-        return chain.filter(exchange);
+        return requestHandlingCompletionIndicator;
     }
 
     @Override
