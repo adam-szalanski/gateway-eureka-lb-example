@@ -7,19 +7,22 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -42,14 +45,34 @@ public class OpenApiValidationGatewayFilterFactory extends
                     .value();
             String method = request.getMethod()
                     .name();
-            return request.getBody()
-                    .map(this::extractBody)
-                    .reduce(String::concat)
-                    .flatMap(body -> validateRequest(exchange, chain, body, request, method, path, config));
+            return DataBufferUtils.join(request.getBody()
+                            .defaultIfEmpty(DefaultDataBufferFactory.sharedInstance.allocateBuffer(0)))
+                    .flatMap(dataBuffer -> {
+                        byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                        dataBuffer.read(bytes);
+                        DataBufferUtils.release(dataBuffer);
+                        String body = new String(bytes, StandardCharsets.UTF_8);
+
+                        return validateRequest(exchange, body, request, method, path, config)
+                                .flatMap(valid -> {
+                                    if (!valid) {
+                                        return exchange.getResponse().setComplete();
+                                    }
+
+                                    ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                                            .header(HttpHeaders.CONTENT_LENGTH, Integer.toString(bytes.length))
+                                            .build();
+
+                                    ServerWebExchange mutatedExchange = exchange.mutate()
+                                            .request(new RequestBodyDecorator(mutatedRequest, exchange, bytes)).build();
+
+                                    return chain.filter(mutatedExchange);
+                                });
+                    });
         };
     }
 
-    private Mono<Void> validateRequest(ServerWebExchange exchange, GatewayFilterChain chain, String body,
+    private Mono<Boolean> validateRequest(ServerWebExchange exchange, String body,
                                        ServerHttpRequest request, String method, String path, Config config) {
         Map<String, String> headers = request.getHeaders()
                 .toSingleValueMap();
@@ -65,19 +88,12 @@ public class OpenApiValidationGatewayFilterFactory extends
                 builder.build());
         log.info("Validation report: {}", validationReport);
 
-        return verifyValidationReport(exchange, chain, validationReport);
+        return verifyValidationReport(exchange, validationReport);
     }
 
-    private String extractBody(DataBuffer dataBuffer) {
-        byte[] bytes = new byte[dataBuffer.readableByteCount()];
-        dataBuffer.read(bytes);
-        DataBufferUtils.release(dataBuffer);
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    private Mono<Void> verifyValidationReport(ServerWebExchange exchange, GatewayFilterChain chain,
+    private Mono<Boolean> verifyValidationReport(ServerWebExchange exchange,
                                               ValidationReport validationReport) {
-        Mono<Void> response;
+        Mono<Boolean> response;
         if (validationReport.hasErrors()) {
             log.error("Validation report has errors: {}", validationReport);
             ServerHttpResponse serverResponse = exchange.getResponse();
@@ -88,11 +104,12 @@ public class OpenApiValidationGatewayFilterFactory extends
                                                                 serverResponse.bufferFactory(),
                                                                 ResolvableType.forInstance(validationReport),
                                                                 MediaType.APPLICATION_JSON,
-                                                                exchange.getAttributes()));
+                            exchange.getAttributes()))
+                    .thenReturn(false);
         }
         else {
             log.info("Validation successful");
-            response = chain.filter(exchange);
+            response = Mono.just(true);
         }
         return response;
     }
@@ -118,5 +135,24 @@ public class OpenApiValidationGatewayFilterFactory extends
     @Setter
     public static class Config {
         protected String swaggerFilePath;
+    }
+
+    private static class RequestBodyDecorator extends ServerHttpRequestDecorator {
+        private final ServerWebExchange exchange;
+        private final byte[] bytes;
+
+        RequestBodyDecorator(ServerHttpRequest mutatedRequest, ServerWebExchange exchange, byte[] bytes) {
+            super(mutatedRequest);
+            this.exchange = exchange;
+            this.bytes = bytes;
+        }
+
+        @Override
+        public Flux<DataBuffer> getBody() {
+            DataBuffer buffer = exchange.getResponse()
+                    .bufferFactory()
+                    .wrap(bytes);
+            return Flux.just(buffer);
+        }
     }
 }
