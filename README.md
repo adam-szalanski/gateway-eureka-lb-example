@@ -8,7 +8,6 @@ This guide explains how to build and run the project and how to work with the pr
 ## Prerequisites
 
 - **Docker:** Ensure Docker is installed and running.
-- **Docker Compose:** Ensure Docker Compose is installed.
 
 ## Building the Applications
 
