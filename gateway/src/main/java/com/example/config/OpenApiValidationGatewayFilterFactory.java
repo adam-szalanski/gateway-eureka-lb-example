@@ -3,6 +3,8 @@ package com.example.config;
 import com.atlassian.oai.validator.OpenApiInteractionValidator;
 import com.atlassian.oai.validator.model.SimpleRequest;
 import com.atlassian.oai.validator.report.ValidationReport;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -28,10 +30,6 @@ import java.util.Map;
 public class OpenApiValidationGatewayFilterFactory extends
                                                    AbstractGatewayFilterFactory<OpenApiValidationGatewayFilterFactory.Config> {
 
-    private final OpenApiInteractionValidator validator = OpenApiInteractionValidator
-            .createFor(new ClassPathResource("openapi/customer_service-openapi.yaml").getPath())
-            .build();
-
     public OpenApiValidationGatewayFilterFactory() {
         super(Config.class);
     }
@@ -47,12 +45,12 @@ public class OpenApiValidationGatewayFilterFactory extends
             return request.getBody()
                     .map(this::extractBody)
                     .reduce(String::concat)
-                    .flatMap(body -> validateRequest(exchange, chain, body, request, method, path));
+                    .flatMap(body -> validateRequest(exchange, chain, body, request, method, path, config));
         };
     }
 
     private Mono<Void> validateRequest(ServerWebExchange exchange, GatewayFilterChain chain, String body,
-                                       ServerHttpRequest request, String method, String path) {
+                                       ServerHttpRequest request, String method, String path, Config config) {
         Map<String, String> headers = request.getHeaders()
                 .toSingleValueMap();
         log.info("Preparing to validate request: method: {}, path: {}, headers: {}, body:{}", method,
@@ -60,6 +58,9 @@ public class OpenApiValidationGatewayFilterFactory extends
                  body);
         SimpleRequest.Builder builder = getValidationRequestBuilder(method, path, headers, body);
 
+        OpenApiInteractionValidator validator = OpenApiInteractionValidator
+                .createFor(new ClassPathResource(config.getSwaggerFilePath()).getPath())
+                .build();
         ValidationReport validationReport = validator.validateRequest(
                 builder.build());
         log.info("Validation report: {}", validationReport);
@@ -113,7 +114,9 @@ public class OpenApiValidationGatewayFilterFactory extends
         return builder;
     }
 
+    @Getter
+    @Setter
     public static class Config {
-
+        protected String swaggerFilePath;
     }
 }
