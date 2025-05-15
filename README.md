@@ -11,30 +11,7 @@ This guide explains how to build and run the project and how to work with the pr
 
 ## Building the Applications
 
-Create the Docker images for each service:
-
-Customer Service
-```bash
-cd customer-service
-docker image build -t customer-service .
-```
-Warehouse Service
-```bash
-cd warehouse-service
-docker image build -t warehouse-service .
-```
-Eureka Service
-```bash
-cd eureka
-docker image build -t eureka-service .
-```
-Gateway Service
-```bash
-cd gateway
-docker image build -t gateway-service .
-```
-
-Once all images are built, from the main folder of the repository run:
+Run below command from the main folder of the repository:
 ```bash
 docker compose up -d
 ```
@@ -48,5 +25,5 @@ docker compose up -d
 
 1. Import the YAML files into Postman.
 2. Set the base URL in the imported collection to: http://localhost:8080
-3. Disable the X-Unique-Id header if it's automatically included in requests.
-4. If request returns HTTP 503 (Service Unavailable) wait a few seconds and perform request again.
+3. Disable the X-Unique-Id header if you want to use X-Unique-Id autogeneration through gateway filter.
+4. If request returns HTTP 503 (Service Unavailable) wait a few seconds and perform request again. (Eureka takes 30 seconds to assure that registered services are running correctly)
